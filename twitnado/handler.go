@@ -4,26 +4,37 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
 
+	"github.com/ThatCraws/twitnado-extractor/utils"
 	"github.com/gin-gonic/gin"
 	twitterscraper "github.com/n0madic/twitter-scraper"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Implementation of the nadoHandlerInterface
 type nadoHandler struct {
-	scraper *twitterscraper.Scraper
+	scraper    *twitterscraper.Scraper
+	mongClient *mongo.Client
 }
 
-func NewNadoHandler() *nadoHandler {
+func NewNadoHandler(connUrl string) *nadoHandler {
 	pScraper := twitterscraper.New()
 	pScraper = pScraper.WithReplies(true)
 	pScraper.SetSearchMode(twitterscraper.SearchTop)
 
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(connUrl))
+	if err != nil {
+		log.Fatalf("Error connecting to database. Error: %s", err.Error())
+	}
+
 	ret := &nadoHandler{
-		scraper: pScraper,
+		scraper:    pScraper,
+		mongClient: client,
 	}
 
 	return ret
@@ -68,28 +79,42 @@ func (handler *nadoHandler) searchQuery(ctx *gin.Context) {
 
 // Handles /store-endpoint
 func (handler *nadoHandler) store(ctx *gin.Context) {
-	fmt.Println("Triggered store endpoint and me... REEEEEEEEEEEEEEEEEEEE")
-
 	// read request-body
 	var buf []byte
-	n, err := ctx.Request.Body.Read(buf)
 
+	if ctx.Request.Body == nil {
+		log.Print("No body given? Aborting")
+		return
+	}
+
+	buf, err := ioutil.ReadAll(ctx.Request.Body)
 	if err != nil {
 		log.Printf("Error reading request-body. Error: %s", err.Error())
+		return
 	}
 
-	fmt.Printf("Read %d chars. Body: %s\n", n, string(buf))
+	fmt.Printf("Body: %s\n", string(buf))
 
-	var body *queryBody = &queryBody{}
-	err = json.Unmarshal(buf, body)
-
+	var body []*twitterscraper.TweetResult
+	err = json.Unmarshal(buf, &body)
 	if err != nil {
 		log.Printf("Error unmarshalling Request-Body. Error: %s", err.Error())
+		return
 	}
 
-	ctx.String(http.StatusOK, body.Query)
-}
+	collection := handler.mongClient.Database("scrape").Collection(utils.GetEnvVal("mong_collection", "tweets"))
 
-type queryBody struct {
-	Query string
+	// convert to interface slice (to work with InsertMany...)
+	toInsert := make([]interface{}, len(body))
+	for i := 0; i < len(body); i++ {
+		toInsert[i] = body[i]
+	}
+
+	_, err = collection.InsertMany(context.TODO(), toInsert)
+	if err != nil {
+		log.Printf("Unable to insert entries to DB. Error: %s", err.Error())
+		ctx.Status(http.StatusInternalServerError)
+	}
+
+	ctx.Status(http.StatusOK)
 }

@@ -1,9 +1,8 @@
 package twitnado
 
-import "github.com/gin-gonic/gin"
-
-// instantiate handler
-var handler nadoHandlerInterface = NewNadoHandler()
+import (
+	"github.com/gin-gonic/gin"
+)
 
 // define handler methods for routes
 type nadoHandlerInterface interface {
@@ -11,7 +10,9 @@ type nadoHandlerInterface interface {
 	store(ctx *gin.Context)
 }
 
-func SetupRoutes(grp *gin.RouterGroup) {
+func SetupRoutes(grp *gin.RouterGroup, connString string) {
+	var handler nadoHandlerInterface = NewNadoHandler(connString)
+
 	grp.GET("/search", handler.searchQuery)
 	grp.POST("/store", handler.store)
 }

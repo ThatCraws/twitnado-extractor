@@ -48,6 +48,10 @@ func (handler *nadoHandler) searchQuery(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
+
+	// For better overview in output make an empty line after setup of GIN
+	fmt.Println()
+
 	// Query-Parameter for number of tweets to scrape
 	numberRetStr := ctx.DefaultQuery("n", "-1")
 	fmt.Printf("You are searching for: %s\n", searchQuery)
@@ -71,8 +75,8 @@ func (handler *nadoHandler) searchQuery(ctx *gin.Context) {
 		fmt.Printf("--- Author: %s ---\n", tweet.Username)
 		fmt.Println(tweet.Text)
 	}
-	fmt.Println("-----------------------------\n-----------------------------")
-	fmt.Printf("Count: %d", count)
+	fmt.Println("-----------------------------")
+	fmt.Printf("Count: %d\n-----------------------------\n", count)
 
 	ctx.JSON(http.StatusOK, allTweets)
 }

@@ -25,7 +25,7 @@ type nadoHandler struct {
 func NewNadoHandler(connUrl string) *nadoHandler {
 	pScraper := twitterscraper.New()
 	pScraper = pScraper.WithReplies(true)
-	pScraper.SetSearchMode(twitterscraper.SearchTop)
+	pScraper.SetSearchMode(twitterscraper.SearchLatest)
 
 	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(connUrl))
 	if err != nil {
